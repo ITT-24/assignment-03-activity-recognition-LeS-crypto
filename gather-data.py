@@ -36,7 +36,7 @@ PORT = 5700
 sensor = SensorUDP(PORT)
 CSV_HEADER = ['id', 'timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] 
 ACTIVITIES = {0: 'running', 1 : 'rowing', 2: 'lifting', 3: 'jumpingjacks'}
-SAMPLE_LIMIT = 1000 # 1000 ? 
+SAMPLE_LIMIT = 100000  
 INTERATION_LIMIT = 5 # HACK for test
 # DATA_SHAPE = (8, 8)
 
@@ -45,7 +45,6 @@ class Activity:
     def __init__(self, name) -> None:
         self.name = name
         self.iteration = 0
-        # self.filepath = f"data/leonie-{self.name}-{self.iteration}.csv"
         # self.data = np.zeros(DATA_SHAPE)
         self.data = []
 
@@ -84,7 +83,7 @@ class Activity:
     def iterate_activity(self):
         self.save_as_csv()
         self.iteration += 1
-        self.data = [] # reset -> just overwrite
+        self.data = [] # reset
 
     def save_as_csv(self):
         # TODO: resample to 100 HZ
@@ -92,10 +91,12 @@ class Activity:
         filepath = f"data/leonie-{self.name}-{self.iteration}.csv"
         df = pd.DataFrame(self.data, columns=CSV_HEADER)
 
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df.resample('10ms', on='timestamp').mean()
+        df['time'] = pd.to_datetime(df['timestamp']) # create for resampling -> used as "index"
+        df = df.resample('10ms', on='time').mean()
 
-        df.to_csv(filepath, index=False)
+        # print(df.head())
+
+        df.to_csv(filepath, index=False, header=CSV_HEADER)
         # print("create", filepath)
     
     # def resample_data(df:pd.DataFrame)-> pd.DataFrame:
@@ -128,45 +129,49 @@ class Jumping_Jacks(Activity):
 
 if __name__ == '__main__':
 
-    dt = pd.DatetimeIndex(["1/1/2020 10:00:00+00:00", "2/1/2020 11:00:00+00:00"])
-    print(pd.to_datetime(pd.Timestamp(time.time())))
-    print(datetime.datetime.now())
-    print(pd.to_datetime(datetime.datetime.now()))
+    # dt = pd.DatetimeIndex(["1/1/2020 10:00:00+00:00", "2/1/2020 11:00:00+00:00"])
+    # print(pd.to_datetime(pd.Timestamp(time.time())))
+    # print(datetime.datetime.now())
+    # print(pd.to_datetime(datetime.datetime.now()))
 
     act = Activity.select_acitivity()
 
     has_acc  = sensor.has_capability('accelerometer')
     has_gyro = sensor.has_capability('gyroscope')
     has_butt = sensor.has_capability('button_1')
+    print("DIPPID devices is sending data:", has_butt)
 
     if act == None and has_butt == False:
         print("Something went wrong D:")
     else:
         print("press button_1 to start recording")
 
-        while(True):
+        # while(True):
+        # start = sensor.get_value('button_1')
+
+        start = False
+        while start == False:
             start = sensor.get_value('button_1')
 
-            if start:
-                for act.iteration in range(0, INTERATION_LIMIT):
-                    l = len(act.data)
-                    for l in range(0, SAMPLE_LIMIT):
-                        # Record all relevant data
-                        current_id = act.id
-                        # t = time.time() # timestamp
-                        t = datetime.datetime.now()
-                        # t = pd.Timestamp.now()
-                        # t = pd.DatetimeIndex.second
+        if start: #  and act.iteration < INTERATION_LIMIT:
+            print("start")
+            time.sleep(2) # skip the pause in action 
+            while act.iteration < INTERATION_LIMIT: # in range(0, INTERATION_LIMIT):
+                if len(act.data) < SAMPLE_LIMIT:
+                    # Record all relevant data
+                    current_id = act.id
+                    t = datetime.datetime.now()
+                    acc  = sensor.get_value('accelerometer')
+                    gyro = sensor.get_value('gyroscope')
 
-                        acc  = sensor.get_value('accelerometer')
-                        gyro = sensor.get_value('gyroscope')
+                    row = [current_id, t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']]
 
-                        row = [current_id, t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']]
+                    act.record_data_row(row)
 
-                        # row = [current_id, t, 0, 1, 2, 0, 1, 2]
-                        act.record_data_row(row)
+                    print("+", len(act.data)) # HACK -> doesn't finish that fast
+                else: 
                     time.sleep(1)
                     print("start next iteration")
                     act.iterate_activity()
-                print("finish")
-                # sys.exit(0)
+
+        print("finish")
