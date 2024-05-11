@@ -34,7 +34,7 @@ sample at 100 Hz https://stackoverflow.com/a/57151232
 
 PORT = 5700
 sensor = SensorUDP(PORT)
-CSV_HEADER = ['id', 'timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] 
+CSV_HEADER = ['timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] 
 ACTIVITIES = {0: 'running', 1 : 'rowing', 2: 'lifting', 3: 'jumpingjacks'}
 SAMPLE_LIMIT = 200000  
 INTERATION_LIMIT = 5 # HACK for test
@@ -175,11 +175,11 @@ if __name__ == '__main__':
                     acc  = sensor.get_value('accelerometer')
                     gyro = sensor.get_value('gyroscope')
 
-                    row = [current_id, t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']]
+                    row = [t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']]
 
                     act.record_data_row(row)
 
-                    print("+", len(act.data)) # HACK -> doesn't finish that fast
+                    print("+", len(act.data)) # HACK -> doesn't "record" that fast
                 else: 
                     time.sleep(1)
                     print("start next iteration")
