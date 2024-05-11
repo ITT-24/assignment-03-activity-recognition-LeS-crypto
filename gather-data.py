@@ -36,7 +36,7 @@ PORT = 5700
 sensor = SensorUDP(PORT)
 CSV_HEADER = ['id', 'timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] 
 ACTIVITIES = {0: 'running', 1 : 'rowing', 2: 'lifting', 3: 'jumpingjacks'}
-SAMPLE_LIMIT = 100000  
+SAMPLE_LIMIT = 200000  
 INTERATION_LIMIT = 5 # HACK for test
 # DATA_SHAPE = (8, 8)
 
@@ -91,12 +91,23 @@ class Activity:
         filepath = f"data/leonie-{self.name}-{self.iteration}.csv"
         df = pd.DataFrame(self.data, columns=CSV_HEADER)
 
-        df['time'] = pd.to_datetime(df['timestamp']) # create for resampling -> used as "index"
-        df = df.resample('10ms', on='time').mean()
+        
+        # df['time'] = pd.to_datetime(df['timestamp']) # create for resampling -> used as "index"
+        #df = df.resample('10ms', on='time').mean()
+
+        # resample - see resample.py
+        df.set_index('timestamp', inplace=True)
+        df_resampled = df.resample('10ms').mean()
+        df_resampled.reset_index(inplace=True)
+        df_resampled['timestamp'] = (df_resampled['timestamp'] - pd.Timestamp("1970-01-01")) // pd.Timedelta('1ms')
+        df_resampled.index.name = 'id'
+
+        df_resampled.to_csv(filepath, index=True, header=CSV_HEADER)
 
         # print(df.head())
 
-        df.to_csv(filepath, index=False, header=CSV_HEADER)
+        # df.to_csv(filepath, index=False, header=CSV_HEADER)
+
         # print("create", filepath)
     
     # def resample_data(df:pd.DataFrame)-> pd.DataFrame:
