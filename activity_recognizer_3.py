@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler, scale, MinMaxScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn import svm
 from pathlib import Path
+import collections
 
 
 ACT_IDS = {'running': 0,'rowing': 1, 'lifting': 2, 'jumpingjacks': 3}
@@ -204,9 +205,22 @@ def use_model(input_data:list[list]=None) -> str:
         # return key, value pair (i.e. {"running": 0})
         prediction = Recognizer.predict_activity(sample)
         print("PREDICT: ", prediction)
-        # for key, value in ACT_IDS.items():
-        #     if value == prediction:
-        #         print(f"{prediction} == {key}")
+
+        # TODO: if majority is one sample -> return that
+        # unique, counts = np.unique(prediction, return_counts=True)
+        # predicted_acts = dict(zip(unique, counts))
+        # print(predicted_acts)
+        # major_act = predicted_acts[0]
+
+        # see: https://stackoverflow.com/a/28663910
+        predicted_acts = collections.Counter(prediction) # majority = first idx
+        # print(predicted_acts)
+        major_act = list(predicted_acts.keys())[0]
+        print("Predicted Activity ==", major_act)
+        
+        for key, value in ACT_IDS.items():
+            if value == major_act:
+                print(f"Predicted Activity == {key}")
         #         return key # ?
     else:
         print("No data recieved")
@@ -218,6 +232,7 @@ if __name__ == "__main__":
     # if train_model():
     # use_model([1715411336750, 1.74,2.62,-0.97,373.54,-129.27,-431.76]) # juming jacks (without)
 
+    # IDEA: collect data for a little bit, then predict the activity
     test_array = [[1715411324450,2.76,0.91,0.61,255.43000000000004,-282.1,-369.81],
                   [1715411324460,2.76,0.91,0.61,255.43,-282.1,-369.81],
                   [1715411324470,2.76,0.9100000000000001,0.61,255.42999999999998,-282.1,-369.81],
