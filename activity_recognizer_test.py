@@ -8,8 +8,10 @@ from sklearn.preprocessing import StandardScaler, scale, MinMaxScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn import svm
 from pathlib import Path
+from scipy import signal
 import collections
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 ACT_IDS = {'running': 0,'rowing': 1, 'lifting': 2, 'jumpingjacks': 3}
 HEADER = ['activity', 'timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] 
@@ -18,7 +20,7 @@ test_size = 0.2
 data_dir = "data/"
 
 COLS = ['acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z'] # + timestamp -> acc_score = 1
-MODEL_COLS = ['timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'frequency']
+# MODEL_COLS = ['timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'frequency']
 MODEL_COLS = ['acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'frequency']
 
 # NOTE: use timestamp-diff btw lows and peaks
@@ -35,10 +37,16 @@ class Recognizer:
 
     @classmethod
     def read_data(cls):
+        """Read the different activity data sets and then process the data."""
         # read, preprocess, feature extract and then split all activities separtely , then append to 1 df
         df_act = pd.DataFrame(columns=HEADER)
 
         folder = Path(data_dir)
+
+        """ 
+        NOTE: activites are processed individually before adding them to a complete dataset.
+        This was initially done to
+        """
         for key, value in ACT_IDS.items():
             for filepath in folder.glob(f"*{key}-*.csv"): #(f"*{key}-*.csv"):
                 if df_act.empty:
@@ -122,10 +130,17 @@ class Recognizer:
         # print("FREQUENCIES:\n", df)
 
         # TODO: DETECT SPIKES/PEAKS IN (FREQ) DATA (?? give more weight)
+        # peaks, _ = signal.find_peaks(freqs, height=freqs.mean()) # indices of peaks in freqs
+        # print("PEAKS", peaks , freqs[peaks], freqs.max())
+
+        # print(df[COLS].apply(signal.find_peaks, axis=1))
+
         # only use data to train, that has significant movement
         # https://gist.github.com/w121211/fbd35d1a8776402ac9fe24654ca8044f
         # https://stackoverflow.com/questions/60794064/step-spike-detection-breakdown-for-pandas-dataframe-graph
         
+        # take the diff -> max_diff in range = Spike
+
         # TRESHOLD FREQUENCY
         # print(df["frequency"].mean())
         # df["frequency"] = df["frequency"].where(df['frequency'].abs() > np.abs(df['frequency'].mean()))
@@ -215,11 +230,10 @@ class Recognizer:
         # cols = TEST_COLS
 
         # CLASSIFIER
-        # classifier = svm.SVC(kernel='linear') # score = 0.62
-        classifier = svm.SVC(kernel='rbf') # score = 0.933
-        # classifier = svm.SVC(kernel='poly') # score = 0.935
-        # classifier = svm.SVC(kernel='sigmoid') # score = 0.109
-        # classifier = svm.LinearSVC(dual='auto') # score = 0.639
+        # classifier = svm.SVC(kernel='linear') # score = 0.731
+        classifier = svm.SVC(kernel='rbf') # score = 0.973
+        # classifier = svm.SVC(kernel='poly') # score = 0.965
+        # classifier = svm.SVC(kernel='sigmoid') # score = 0.279
 
         # "SVM berücksichtigt Timestamp nicht"
 
@@ -256,10 +270,36 @@ class Recognizer:
         # print("PREDICT: ", ACT_IDS['jumpingjacks'], prediction) 
         return prediction
 
+    @classmethod
+    def plot_test_sensors(cls):
+        """Helper function"""
+        # https://stackoverflow.com/a/52612432
+        df = cls.test
+        
+        plt.subplot(2, 2, 1)
+        sns.scatterplot(data=df, x='acc_x', y='acc_y', color='black', style='activity', s=200)
+        plt.legend(['acc_x','acc_y'])
+        # plt.legend(['frequencies'])
 
+        plt.subplot(2, 2, 2)
+        sns.scatterplot(data=df, x='gyro_x', y='gyro_y', color='black', style='activity', s=200)
+        plt.legend(['gyro_x', 'gyro_y'])
+        # plt.legend(['acc_y'])
+        plt.subplot(2, 2, 3)
+        sns.scatterplot(data=df, x='acc_z', y='acc_y', color='black', style='activity', s=200)
+        plt.legend(['acc_z','acc_y'])
+        # plt.plot(df['acc_z'])
+        # plt.legend(['acc_z'])
+        plt.subplot(2, 2, 4)
+        sns.scatterplot(data=df, x='gyro_z', y='gyro_y', color='black', style='activity', s=200)
+        plt.legend(['gyro_z', 'gyro_y'])
+        # plt.plot(peaks4, x[peaks4], "xk"); plt.plot(x); plt.legend(['threshold'])
+
+        plt.show()
 
 def train_model():
     Recognizer.read_data()
+    # Recognizer.plot_test_sensors()
     Recognizer.train_model()
     Recognizer.evaluate_training()
     return True

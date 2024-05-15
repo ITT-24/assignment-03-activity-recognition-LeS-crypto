@@ -1,43 +1,9 @@
 # this program visualizes activities with pyglet
 
-import activity_recognizer_3 as activity
+import activity_recognizer as activity
 import pyglet
-import pandas as pd
-import numpy as np
-from sklearn import *
-from time import sleep
 import datetime
 from DIPPID import SensorUDP
-from pathlib import Path
-
-"""
-- [x] (1P) the program correctly loads training data
-- [?] (2P) training data is pre-processed appropriately
-- [x] (1P) a classifier is trained with this training data when the program is started
-- [ ] (3P) the classifier recognizes activities correctly
-- [x] (1P) prediction accuracy for a test data set is printed
-- [x] (1P) prediction works continuously without requiring intervention by the user
-- [/] (1P) the fitness training application works and looks nice
-"""
-
-# TODO:
-    # display activities and track if executed correctly for x-amount of time
-    # in activity_recognition.py
-        # Program start = read training data from csv files
-            # preprocess data
-            # split into train(80) & test(20)
-            # train machine learning classifier
-            # After Training: evaluate model's accuracy using the test data set
-        # Model should predict activities based on sensor data from DIPPID
-    # Prediction should run continously without requiring further intervention by user
-    # Visualize the fitness trainer using pyglet
-
-
-# create window
-# train model -> save classifier for later
-# get DIPPID input -> if trained
-# send input to activity_recognizer + get prediction back
-# display results
 
 PORT = 5700
 sensor = SensorUDP(PORT)
@@ -57,8 +23,7 @@ OPAC_NO = 128
 OPAC_YES = 255
 
 # THRESHOLDS
-DATA_THRESHOLD = 200 # amount of data to collect before predicting
-COUNTER_THRESHOLD = 1 # amount of times, the exercise has to be the same # for testing
+DATA_THRESHOLD = 250 # amount of data to collect before predicting
 ACC_CHANGE = 0.05 # change in accuracy to be considered significant movement
 
 class Trainer():
@@ -81,28 +46,22 @@ class Trainer():
 
         if not sensor.has_capability('accelerometer'):
             self.prediction.text = "No DIPPID device found"
-        else:
-            # collect multiple sampless to be classified at once
+        else: # collect multiple samples to be classified at once
             if len(self.sensor_data) > DATA_THRESHOLD:
                 print("predicting activity...")
                 act = activity.use_model(self.sensor_data)
-                # print(act)
                 self.sensor_data = []
                 self.parse_prediction(act)
             else:
-                # handle idle
-
-                # TODO if sensor moves a significant amount -> should be handled in a_r
+                # collect multiple samples
                 acc  = sensor.get_value('accelerometer')
                 gyro = sensor.get_value('gyroscope')
-                t = datetime.datetime.now() # pd.Timestamp("1970-01-01") // pd.Timedelta('1ms')
-                # t = (datetime.datetime.now() - pd.Timestamp("1970-01-01")) // pd.Timedelta('1ms')
+                t = datetime.datetime.now() # not really used, but for same data-form
 
                 data = [t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']] # type: ignore
                 if self.check_movement(data=data):
                     self.sensor_data.append(data)
-                # print(t, data)
-            # activity.use_model(data)
+
     
     def check_movement(self, data) -> bool:
         """Check if the DIPPID device moves a significant amount, i.e. isn't laying on the desk"""
@@ -118,44 +77,15 @@ class Trainer():
                 return True
         return False
 
-            
-
-
     def parse_prediction(self, exercise:str):
-        """ Parse and display the prediction.
-        ?? Check if the predicted exercise has been performed for a certain amount"""
-        print("detected")
-
+        """ Parse and display the prediction"""
         # print exercise name
         self.prediction.text = f"Excercise: {exercise}"
         self.prediction.draw()
 
-        # change opacity of sprite
-        images.select_action(exercise)
-        
-        # print(self.previous_exercise, "->", exercise)
-
-        # if self.exercise_counter > COUNTER_THRESHOLD:
-        #     print("detected")
-
-        #     # print exercise name
-        #     self.prediction.text = f"Excercise: {exercise}"
-        #     self.prediction.draw()
-
-        #     # change opacity of sprite
-        #     images.select_action(exercise)
-
-        # elif exercise == self.previous_exercise:
-        #     print("same exercise")
-        #     self.exercise_counter += 1
-
-        # else: 
-        #     print("new exercise ->", exercise)
-        #     self.exercise_counter = 0
-        #     self.prediction.text = f"Excercise: ..."
-        #     self.prediction.draw()
-
-        # self.previous_exercise = exercise
+        # change opacity of sprite if detected exercise
+        if exercise != "...":
+            images.select_action(exercise)
 
 
 class Images():
@@ -215,9 +145,6 @@ def on_draw():
         trainer.read_input_stream()
     else:
         settings.draw()
-        # print(images.sprite)
-        # images.sprite.draw()
-        # draw images
 
 @window.event
 def on_key_press(symbol, modifiers):
@@ -225,18 +152,8 @@ def on_key_press(symbol, modifiers):
         window.close()
     elif symbol == pyglet.window.key.ENTER:
         trainer.init_model()
-        # settings.text = "Loading..."
-        # settings.draw() # doesn't work
-    # elif symbol == pyglet.window.key.Z:
-    #     print("run")
-    #     images.select_action("running")
+
 
 
 if __name__ == "__main__":
     pyglet.app.run()
-
-
-    # finished_training = activity.train_model()
-    # if finished_training:
-    #     print("has trained")
-    #     # start rest
