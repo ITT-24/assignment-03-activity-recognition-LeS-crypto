@@ -47,12 +47,8 @@ HEIGHT = 500
 window = pyglet.window.Window(WIDTH, HEIGHT)
 pyglet.gl.glClearColor(0.5,0,0,1)
 
-settings = pyglet.text.Label("Press Enter to train the model", x=WIDTH/2, y=HEIGHT/2, anchor_x='center', anchor_y='center')
-
-# TODO: load exercize img and display them
-# https://pyglet.readthedocs.io/en/latest/programming_guide/image.html
-# jumpingjacks1 = pyglet.image.load("img/jumpingjack_1.png")
-# lifting1 = pyglet.image.load("")
+settings = pyglet.text.Label("Press Enter to train the model", x=int(WIDTH/2), y=int(HEIGHT/2), 
+                             anchor_x='center', anchor_y='center')
 
 # LAYOUT & STYLING
 OFF_SET = 130
@@ -60,15 +56,17 @@ MARGIN = 50
 OPAC_NO = 128
 OPAC_YES = 255
 
-
-DATA_THRESHOLD = 200
-COUNTER_THRESHOLD = 2 # for testing
+# THRESHOLDS
+DATA_THRESHOLD = 200 # amount of data to collect before predicting
+COUNTER_THRESHOLD = 1 # amount of times, the exercise has to be the same # for testing
+ACC_CHANGE = 0.05 # change in accuracy to be considered significant movement
 
 class Trainer():
 
     def __init__(self) -> None:
         self.finished_training = False
-        self.prediction = pyglet.text.Label("Exercise: ...", x=WIDTH/2, y=HEIGHT/2, anchor_x='center', anchor_y='center' )
+        self.prediction = pyglet.text.Label("Exercise: ...", x=int(WIDTH/2), y=int(HEIGHT/2), 
+                                            anchor_x='center', anchor_y='center' )
         self.sensor_data = []
         self.previous_exercise = "..."
         self.exercise_counter = 0
@@ -79,10 +77,12 @@ class Trainer():
         self.finished_training = activity.train_model()
 
     def read_input_stream(self):
-        """Read the DIPPID input stream and send the collected data to the trained model"""
+        """Reads the DIPPID input stream and sends the collected data to the trained model"""
+
         if not sensor.has_capability('accelerometer'):
             self.prediction.text = "No DIPPID device found"
         else:
+            # collect multiple sampless to be classified at once
             if len(self.sensor_data) > DATA_THRESHOLD:
                 print("predicting activity...")
                 act = activity.use_model(self.sensor_data)
@@ -90,47 +90,77 @@ class Trainer():
                 self.sensor_data = []
                 self.parse_prediction(act)
             else:
+                # handle idle
+
                 # TODO if sensor moves a significant amount -> should be handled in a_r
                 acc  = sensor.get_value('accelerometer')
                 gyro = sensor.get_value('gyroscope')
                 t = datetime.datetime.now() # pd.Timestamp("1970-01-01") // pd.Timedelta('1ms')
                 # t = (datetime.datetime.now() - pd.Timestamp("1970-01-01")) // pd.Timedelta('1ms')
 
-                data = [t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']]
-                self.sensor_data.append(data)
+                data = [t, acc['x'], acc['y'], acc['z'], gyro['x'], gyro['y'], gyro['z']] # type: ignore
+                if self.check_movement(data=data):
+                    self.sensor_data.append(data)
                 # print(t, data)
             # activity.use_model(data)
+    
+    def check_movement(self, data) -> bool:
+        """Check if the DIPPID device moves a significant amount, i.e. isn't laying on the desk"""
+        # Only check accerlerometer, as it seems most reliable => acc change </> 0.05
+        if len(self.sensor_data) == 0:
+            print("init")
+            return True
+        elif len(self.sensor_data) > 0: 
+            # only check 1 -> all acc axis change when you move the device
+            prev_acc_x = self.sensor_data[0][1]
+            acc_x =  data[1]
+            if acc_x > (prev_acc_x + ACC_CHANGE) or acc_x < (prev_acc_x - ACC_CHANGE):
+                return True
+        return False
+
+            
+
 
     def parse_prediction(self, exercise:str):
-        """Check if the predicted exercise has been performed for a certain time"""
-        print(self.previous_exercise, "->", exercise)
+        """ Parse and display the prediction.
+        ?? Check if the predicted exercise has been performed for a certain amount"""
+        print("detected")
 
-        if self.exercise_counter > COUNTER_THRESHOLD:
-            print("detected")
+        # print exercise name
+        self.prediction.text = f"Excercise: {exercise}"
+        self.prediction.draw()
 
-            # print exercise name
-            self.prediction.text = f"Excercise: {exercise}"
-            self.prediction.draw()
+        # change opacity of sprite
+        images.select_action(exercise)
+        
+        # print(self.previous_exercise, "->", exercise)
 
-            # change opacity of sprite
-            images.select_action(exercise)
+        # if self.exercise_counter > COUNTER_THRESHOLD:
+        #     print("detected")
 
-        elif exercise == self.previous_exercise:
-            print("same exercise")
-            self.exercise_counter += 1
+        #     # print exercise name
+        #     self.prediction.text = f"Excercise: {exercise}"
+        #     self.prediction.draw()
 
-        else: 
-            print("new exercise ->", exercise)
-            self.exercise_counter = 0
-            self.prediction.text = f"Excercise: ..."
-            self.prediction.draw()
+        #     # change opacity of sprite
+        #     images.select_action(exercise)
 
-        self.previous_exercise = exercise
+        # elif exercise == self.previous_exercise:
+        #     print("same exercise")
+        #     self.exercise_counter += 1
+
+        # else: 
+        #     print("new exercise ->", exercise)
+        #     self.exercise_counter = 0
+        #     self.prediction.text = f"Excercise: ..."
+        #     self.prediction.draw()
+
+        # self.previous_exercise = exercise
 
 
 class Images():
     """Encompases all animated images that show the exercises"""
-    
+
     actions = ["jumpingjacks", "lifting", "rowing", "running"]
     coordinates = [[MARGIN, MARGIN], [WIDTH-OFF_SET, MARGIN], 
                    [MARGIN, HEIGHT-OFF_SET], [WIDTH-OFF_SET, HEIGHT-OFF_SET]] # same order as actions
