@@ -53,6 +53,7 @@ class Activity:
         self.data = [] # reset
 
     def save_as_csv(self):
+        # AS: hard-coded name? :(
         filepath = f"data/leonie-{self.name}-{self.iteration}.csv"
         df = pd.DataFrame(self.data, columns=CSV_HEADER)
 
